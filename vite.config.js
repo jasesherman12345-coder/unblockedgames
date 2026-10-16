@@ -9,32 +9,11 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig(() => {
   return {
-    plugins: [
-      {
-        name: 'jxs-rewrite',
-        configureServer(server) {
-          server.middlewares.use((req, res, next) => {
-            if (req.url) {
-              const cleanUrl = req.url.split('?')[0];
-              const query = req.url.includes('?') ? '?' + req.url.split('?').slice(1).join('?') : '';
-              if (
-                cleanUrl === '/main.jxs' ||
-                cleanUrl === '/main.jsx' ||
-                cleanUrl === '/main.js' ||
-                cleanUrl.endsWith('/main.jxs')
-              ) {
-                req.url = '/src/main.jsx' + query;
-              } else if (req.url.includes('.jxs')) {
-                req.url = req.url.replace('.jxs', '.jsx');
-              }
-            }
-            next();
-          });
-        },
-      },
-      react(),
-      tailwindcss()
-    ],
+    plugins: [react(), tailwindcss()],
+    esbuild: {
+      loader: 'jsx',
+      include: /src\/.*\.[tj]sx?$/,
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
