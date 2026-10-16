@@ -9,7 +9,23 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      {
+        name: 'jxs-rewrite',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.url && req.url.includes('main.jxs')) {
+              req.url = req.url.replace('main.jxs', 'main.jsx');
+            } else if (req.url && req.url.includes('.jxs')) {
+              req.url = req.url.replace('.jxs', '.jsx');
+            }
+            next();
+          });
+        },
+      },
+      react(),
+      tailwindcss()
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
