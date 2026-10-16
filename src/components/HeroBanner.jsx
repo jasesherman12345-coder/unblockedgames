@@ -1,5 +1,6 @@
 import React from 'react';
 import { Play, Sparkles } from 'lucide-react';
+import heroImage from '../assets/images/hero_arcade_vault_1792108786479.jpg';
 
 export const HeroBanner = ({ featuredGame, onPlay }) => {
   if (!featuredGame) return null;
@@ -54,7 +55,7 @@ export const HeroBanner = ({ featuredGame, onPlay }) => {
         {/* Right Media / Image */}
         <div className="lg:col-span-5 relative min-h-[220px] lg:min-h-full overflow-hidden bg-slate-950">
           <img
-            src="/src/assets/images/hero_arcade_vault_1792108786479.jpg"
+            src={heroImage || "/images/hero_arcade_vault.jpg"}
             alt="Arcade Gaming Vault"
             referrerPolicy="no-referrer"
             className="w-full h-full object-cover opacity-85 hover:opacity-100 transition-opacity"
