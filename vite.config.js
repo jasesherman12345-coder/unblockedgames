@@ -14,10 +14,19 @@ export default defineConfig(() => {
         name: 'jxs-rewrite',
         configureServer(server) {
           server.middlewares.use((req, res, next) => {
-            if (req.url && req.url.includes('main.jxs')) {
-              req.url = req.url.replace('main.jxs', 'main.jsx');
-            } else if (req.url && req.url.includes('.jxs')) {
-              req.url = req.url.replace('.jxs', '.jsx');
+            if (req.url) {
+              const cleanUrl = req.url.split('?')[0];
+              const query = req.url.includes('?') ? '?' + req.url.split('?').slice(1).join('?') : '';
+              if (
+                cleanUrl === '/main.jxs' ||
+                cleanUrl === '/main.jsx' ||
+                cleanUrl === '/main.js' ||
+                cleanUrl.endsWith('/main.jxs')
+              ) {
+                req.url = '/src/main.jsx' + query;
+              } else if (req.url.includes('.jxs')) {
+                req.url = req.url.replace('.jxs', '.jsx');
+              }
             }
             next();
           });
@@ -32,6 +41,7 @@ export default defineConfig(() => {
       },
     },
     server: {
+      allowedHosts: true,
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
