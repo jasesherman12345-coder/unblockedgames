@@ -1,0 +1,6 @@
+{
+  "name": "Nova Games - Unblocked Games Hub",
+  "description": "Fast, unblocked HTML5 arcade and puzzle games portal stored as iframes in JSON with fullscreen, tab cloak, and custom game additions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

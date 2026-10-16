@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect Four</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 440px;
+      max-width: 95vw;
+      margin-bottom: 12px;
+    }
+    .status-text {
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .btn {
+      background: #1e293b;
+      color: #38bdf8;
+      border: 1px solid #334155;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .board {
+      background: #1d4ed8;
+      padding: 12px;
+      border-radius: 12px;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+      width: 440px;
+      max-width: 95vw;
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+    }
+    .slot {
+      aspect-ratio: 1;
+      background: #0f172a;
+      border-radius: 50%;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.15s;
+    }
+    .slot:hover {
+      transform: scale(1.05);
+    }
+    .slot.p1 {
+      background: #ef4444;
+      box-shadow: inset 0 -4px 6px rgba(0,0,0,0.4);
+    }
+    .slot.p2 {
+      background: #facc15;
+      box-shadow: inset 0 -4px 6px rgba(0,0,0,0.4);
+    }
+    .slot.win {
+      animation: pulse 0.7s infinite alternate;
+    }
+    @keyframes pulse {
+      from { transform: scale(1); filter: brightness(1.1); }
+      to { transform: scale(1.15); filter: brightness(1.4); }
+    }
+  </style>
+</head>
+<body>
+  <div class="hud">
+    <div class="status-text" id="statusText">Red's Turn (P1)</div>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn" id="modeBtn">Mode: vs CPU</button>
+      <button class="btn" id="resetBtn">Restart</button>
+    </div>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <script>
+    const ROWS = 6;
+    const COLS = 7;
+    let grid = [];
+    let currentPlayer = 1; // 1 = Red, 2 = Yellow
+    let isVsCpu = true;
+    let isGameOver = false;
+
+    const boardEl = document.getElementById('board');
+    const statusText = document.getElementById('statusText');
+    const modeBtn = document.getElementById('modeBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    function initGame() {
+      grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
+      currentPlayer = 1;
+      isGameOver = false;
+      statusText.innerHTML = '<span style="color: #ef4444;">Red\'s Turn (P1)</span>';
+      render();
+    }
+
+    function checkWin(r, c, p) {
+      const dirs = [
+        [[0, 1], [0, -1]], // horizontal
+        [[1, 0], [-1, 0]], // vertical
+        [[1, 1], [-1, -1]], // diag \
+        [[1, -1], [-1, 1]]  // diag /
+      ];
+
+      for (let dir of dirs) {
+        let count = 1;
+        let line = [[r, c]];
+        for (let [dr, dc] of dir) {
+          let currR = r + dr;
+          let currC = c + dc;
+          while (currR >= 0 && currR < ROWS && currC >= 0 && currC < COLS && grid[currR][currC] === p) {
+            count++;
+            line.push([currR, currC]);
+            currR += dr;
+            currC += dc;
+          }
+        }
+        if (count >= 4) return line;
+      }
+      return null;
+    }
+
+    function dropDisc(col) {
+      if (isGameOver) return;
+
+      // Find bottom-most empty slot
+      let row = -1;
+      for (let r = ROWS - 1; r >= 0; r--) {
+        if (grid[r][col] === 0) {
+          row = r;
+          break;
+        }
+      }
+      if (row === -1) return; // Column full
+
+      grid[row][col] = currentPlayer;
+      const winLine = checkWin(row, col, currentPlayer);
+
+      if (winLine) {
+        isGameOver = true;
+        render(winLine);
+        const name = currentPlayer === 1 ? 'Red (P1)' : (isVsCpu ? 'CPU (Yellow)' : 'Yellow (P2)');
+        statusText.innerHTML = `<span style="color: ${currentPlayer === 1 ? '#ef4444' : '#facc15'};">${name} Wins!</span>`;
+        return;
+      }
+
+      // Check draw
+      if (grid.every(r => r.every(cell => cell !== 0))) {
+        isGameOver = true;
+        render();
+        statusText.innerText = 'Game is a Draw!';
+        return;
+      }
+
+      currentPlayer = currentPlayer === 1 ? 2 : 1;
+      statusText.innerHTML = currentPlayer === 1
+        ? '<span style="color: #ef4444;">Red\'s Turn (P1)</span>'
+        : `<span style="color: #facc15;">${isVsCpu ? 'CPU Thinking...' : 'Yellow\'s Turn (P2)'}</span>`;
+      render();
+
+      if (isVsCpu && currentPlayer === 2 && !isGameOver) {
+        setTimeout(cpuMove, 350);
+      }
+    }
+
+    function cpuMove() {
+      if (isGameOver) return;
+      // Heuristic AI: check if CPU can win
+      for (let c = 0; c < COLS; c++) {
+        let r = getLowestRow(c);
+        if (r !== -1) {
+          grid[r][c] = 2;
+          if (checkWin(r, c, 2)) {
+            grid[r][c] = 0;
+            dropDisc(c);
+            return;
+          }
+          grid[r][c] = 0;
+        }
+      }
+
+      // Check if need to block Player 1
+      for (let c = 0; c < COLS; c++) {
+        let r = getLowestRow(c);
+        if (r !== -1) {
+          grid[r][c] = 1;
+          if (checkWin(r, c, 1)) {
+            grid[r][c] = 0;
+            dropDisc(c);
+            return;
+          }
+          grid[r][c] = 0;
+        }
+      }
+
+      // Pick center prioritized column
+      const colOrder = [3, 2, 4, 1, 5, 0, 6];
+      for (let c of colOrder) {
+        if (getLowestRow(c) !== -1) {
+          dropDisc(c);
+          return;
+        }
+      }
+    }
+
+    function getLowestRow(col) {
+      for (let r = ROWS - 1; r >= 0; r--) {
+        if (grid[r][col] === 0) return r;
+      }
+      return -1;
+    }
+
+    function render(winLine = null) {
+      boardEl.innerHTML = '';
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const div = document.createElement('div');
+          div.className = 'slot';
+          if (grid[r][c] === 1) div.classList.add('p1');
+          if (grid[r][c] === 2) div.classList.add('p2');
+
+          if (winLine && winLine.some(([wr, wc]) => wr === r && wc === c)) {
+            div.classList.add('win');
+          }
+
+          div.onclick = () => {
+            if (!isVsCpu || currentPlayer === 1) {
+              dropDisc(c);
+            }
+          };
+          boardEl.appendChild(div);
+        }
+      }
+    }
+
+    modeBtn.onclick = () => {
+      isVsCpu = !isVsCpu;
+      modeBtn.innerText = isVsCpu ? 'Mode: vs CPU' : 'Mode: 2 Player';
+      initGame();
+    };
+
+    resetBtn.onclick = initGame;
+    initGame();
+  </script>
+</body>
+</html>

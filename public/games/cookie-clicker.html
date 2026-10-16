@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cookie Clicker Idle</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      background: #18181b;
+      color: #f4f4f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .wrapper {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      width: 560px;
+      max-width: 95vw;
+      background: #27272a;
+      border: 1px solid #3f3f46;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    @media (max-width: 580px) {
+      .wrapper { grid-template-columns: 1fr; }
+    }
+    .cookie-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .cookie-count {
+      font-size: 32px;
+      font-weight: 800;
+      color: #fbbf24;
+      font-variant-numeric: tabular-nums;
+    }
+    .cps-rate {
+      font-size: 13px;
+      color: #a1a1aa;
+      margin-bottom: 20px;
+    }
+    .big-cookie {
+      font-size: 86px;
+      cursor: pointer;
+      transition: transform 0.08s ease;
+      filter: drop-shadow(0 10px 15px rgba(0,0,0,0.4));
+    }
+    .big-cookie:hover { transform: scale(1.05); }
+    .big-cookie:active { transform: scale(0.92); }
+    .upgrades-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+    .upgrade-btn {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #3f3f46;
+      border: 1px solid #52525b;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #f4f4f5;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .upgrade-btn:hover:not(:disabled) {
+      background: #52525b;
+      border-color: #fbbf24;
+    }
+    .upgrade-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .upgrade-info {
+      text-align: left;
+    }
+    .upgrade-title {
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .upgrade-desc {
+      font-size: 11px;
+      color: #a1a1aa;
+    }
+    .upgrade-cost {
+      font-weight: 800;
+      font-size: 13px;
+      color: #fbbf24;
+    }
+    .upgrade-count {
+      font-size: 12px;
+      color: #93c5fd;
+      margin-left: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="cookie-section">
+      <div class="cookie-count" id="cookieCount">0</div>
+      <div class="cps-rate"><span id="cps">0</span> cookies per second</div>
+      <div class="big-cookie" id="cookie">🍪</div>
+      <div style="margin-top: 15px; font-size: 12px; color: #a1a1aa;">Click cookie to bake!</div>
+    </div>
+
+    <div class="upgrades-section">
+      <button class="upgrade-btn" id="upClick">
+        <div class="upgrade-info">
+          <div class="upgrade-title">Wooden Rolling Pin <span class="upgrade-count" id="countClick">(0)</span></div>
+          <div class="upgrade-desc">+1 per click</div>
+        </div>
+        <div class="upgrade-cost" id="costClick">15 🍪</div>
+      </button>
+
+      <button class="upgrade-btn" id="upBaker">
+        <div class="upgrade-info">
+          <div class="upgrade-title">Grandma Baker <span class="upgrade-count" id="countBaker">(0)</span></div>
+          <div class="upgrade-desc">+2 cookies/sec</div>
+        </div>
+        <div class="upgrade-cost" id="costBaker">100 🍪</div>
+      </button>
+
+      <button class="upgrade-btn" id="upOven">
+        <div class="upgrade-info">
+          <div class="upgrade-title">Industrial Oven <span class="upgrade-count" id="countOven">(0)</span></div>
+          <div class="upgrade-desc">+10 cookies/sec</div>
+        </div>
+        <div class="upgrade-cost" id="costOven">600 🍪</div>
+      </button>
+
+      <button class="upgrade-btn" id="upFactory">
+        <div class="upgrade-info">
+          <div class="upgrade-title">Cookie Factory <span class="upgrade-count" id="countFactory">(0)</span></div>
+          <div class="upgrade-desc">+50 cookies/sec</div>
+        </div>
+        <div class="upgrade-cost" id="costFactory">2,500 🍪</div>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let cookies = parseInt(localStorage.getItem('cookie_save_count') || '0', 10);
+    let clickPower = parseInt(localStorage.getItem('cookie_click_pwr') || '1', 10);
+    let bakers = parseInt(localStorage.getItem('cookie_bakers') || '0', 10);
+    let ovens = parseInt(localStorage.getItem('cookie_ovens') || '0', 10);
+    let factories = parseInt(localStorage.getItem('cookie_factories') || '0', 10);
+
+    const cookieEl = document.getElementById('cookie');
+    const cookieCountEl = document.getElementById('cookieCount');
+    const cpsEl = document.getElementById('cps');
+
+    const upClick = document.getElementById('upClick');
+    const upBaker = document.getElementById('upBaker');
+    const upOven = document.getElementById('upOven');
+    const upFactory = document.getElementById('upFactory');
+
+    function getCps() {
+      return (bakers * 2) + (ovens * 10) + (factories * 50);
+    }
+
+    function getCosts() {
+      return {
+        click: Math.floor(15 * Math.pow(1.3, clickPower - 1)),
+        baker: Math.floor(100 * Math.pow(1.25, bakers)),
+        oven: Math.floor(600 * Math.pow(1.25, ovens)),
+        factory: Math.floor(2500 * Math.pow(1.25, factories))
+      };
+    }
+
+    function updateUI() {
+      cookieCountEl.innerText = Math.floor(cookies).toLocaleString();
+      cpsEl.innerText = getCps().toLocaleString();
+
+      const costs = getCosts();
+      document.getElementById('costClick').innerText = costs.click.toLocaleString() + ' 🍪';
+      document.getElementById('costBaker').innerText = costs.baker.toLocaleString() + ' 🍪';
+      document.getElementById('costOven').innerText = costs.oven.toLocaleString() + ' 🍪';
+      document.getElementById('costFactory').innerText = costs.factory.toLocaleString() + ' 🍪';
+
+      document.getElementById('countClick').innerText = `(${clickPower - 1})`;
+      document.getElementById('countBaker').innerText = `(${bakers})`;
+      document.getElementById('countOven').innerText = `(${ovens})`;
+      document.getElementById('countFactory').innerText = `(${factories})`;
+
+      upClick.disabled = cookies < costs.click;
+      upBaker.disabled = cookies < costs.baker;
+      upOven.disabled = cookies < costs.oven;
+      upFactory.disabled = cookies < costs.factory;
+
+      // Save to localStorage
+      localStorage.setItem('cookie_save_count', cookies);
+      localStorage.setItem('cookie_click_pwr', clickPower);
+      localStorage.setItem('cookie_bakers', bakers);
+      localStorage.setItem('cookie_ovens', ovens);
+      localStorage.setItem('cookie_factories', factories);
+    }
+
+    cookieEl.onclick = () => {
+      cookies += clickPower;
+      updateUI();
+    };
+
+    upClick.onclick = () => {
+      const cost = getCosts().click;
+      if (cookies >= cost) {
+        cookies -= cost;
+        clickPower++;
+        updateUI();
+      }
+    };
+
+    upBaker.onclick = () => {
+      const cost = getCosts().baker;
+      if (cookies >= cost) {
+        cookies -= cost;
+        bakers++;
+        updateUI();
+      }
+    };
+
+    upOven.onclick = () => {
+      const cost = getCosts().oven;
+      if (cookies >= cost) {
+        cookies -= cost;
+        ovens++;
+        updateUI();
+      }
+    };
+
+    upFactory.onclick = () => {
+      const cost = getCosts().factory;
+      if (cookies >= cost) {
+        cookies -= cost;
+        factories++;
+        updateUI();
+      }
+    };
+
+    setInterval(() => {
+      const cps = getCps();
+      if (cps > 0) {
+        cookies += cps / 10;
+        updateUI();
+      }
+    }, 100);
+
+    updateUI();
+  </script>
+</body>
+</html>
