@@ -9,14 +9,51 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
-    esbuild: {
-      loader: 'jsx',
-      include: /src\/.*\.[tj]sx?$/,
-    },
+    plugins: [
+      {
+        name: 'root-main-redirect',
+        resolveId(id) {
+          if (
+            id === '/main.jsx' ||
+            id === '/main.js' ||
+            id === '/main.tsx' ||
+            id === '/main.jxs' ||
+            id === 'main.jsx' ||
+            id === 'main.js' ||
+            id === 'main.tsx' ||
+            id === 'main.jxs'
+          ) {
+            return path.resolve(__dirname, 'src/main.jsx');
+          }
+        },
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.url) {
+              const urlNoQuery = req.url.split('?')[0];
+              const query = req.url.includes('?') ? '?' + req.url.split('?').slice(1).join('?') : '';
+              if (
+                urlNoQuery === '/main.jsx' ||
+                urlNoQuery === '/main.js' ||
+                urlNoQuery === '/main.tsx' ||
+                urlNoQuery === '/main.jxs'
+              ) {
+                req.url = '/src/main.jsx' + query;
+              }
+            }
+            next();
+          });
+        },
+      },
+      react(),
+      tailwindcss()
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        '/main.jsx': path.resolve(__dirname, 'src/main.jsx'),
+        '/main.js': path.resolve(__dirname, 'src/main.jsx'),
+        '/main.tsx': path.resolve(__dirname, 'src/main.jsx'),
+        '/main.jxs': path.resolve(__dirname, 'src/main.jsx'),
       },
     },
     server: {
