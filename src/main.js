@@ -3,4 +3,17 @@ import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import './index.css';
 
-createRoot(document.getElementById('root')).render(React.createElement(App));
+function mount() {
+  const rootEl = document.getElementById('root');
+  if (rootEl) {
+    createRoot(rootEl).render(<App />);
+  } else {
+    console.error('Target container #root not found');
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', mount);
+} else {
+  mount();
+}
