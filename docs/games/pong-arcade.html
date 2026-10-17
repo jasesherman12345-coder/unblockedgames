@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pong Arcade</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      background: #020617;
+      color: #f8fafc;
+      font-family: 'Courier New', Courier, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 540px;
+      max-width: 95vw;
+      padding: 10px 16px;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 8px 8px 0 0;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .mode-btn {
+      background: #1e293b;
+      color: #38bdf8;
+      border: 1px solid #334155;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    canvas {
+      background: #000000;
+      border: 2px solid #334155;
+      border-radius: 0 0 8px 8px;
+      max-width: 95vw;
+      max-height: 75vh;
+      display: block;
+    }
+    .hint {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #94a3b8;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="hud">
+    <div>P1: <span id="p1Score" style="color: #38bdf8;">0</span></div>
+    <button class="mode-btn" id="modeBtn">Mode: 1P vs CPU</button>
+    <div>P2 / CPU: <span id="p2Score" style="color: #f43f5e;">0</span></div>
+  </div>
+  <canvas id="gameCanvas" width="540" height="380"></canvas>
+  <div class="hint" id="hintText">P1: [W / S] or Mouse · First to 7 points wins</div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const p1ScoreEl = document.getElementById('p1Score');
+    const p2ScoreEl = document.getElementById('p2Score');
+    const modeBtn = document.getElementById('modeBtn');
+    const hintText = document.getElementById('hintText');
+
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+    function playBeep(freq, duration = 0.05, type = 'square') {
+      try {
+        if (!audioCtx) audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    let is2P = false;
+    let p1Score = 0;
+    let p2Score = 0;
+    const maxScore = 7;
+
+    const paddleHeight = 65;
+    const paddleWidth = 10;
+    let p1Y = (canvas.height - paddleHeight) / 2;
+    let p2Y = (canvas.height - paddleHeight) / 2;
+
+    let ballX = canvas.width / 2;
+    let ballY = canvas.height / 2;
+    let ballRadius = 6;
+    let ballSpeedX = 4;
+    let ballSpeedY = 2;
+
+    let p1Up = false, p1Down = false;
+    let p2Up = false, p2Down = false;
+    let isGameOver = false;
+
+    function resetBall(winner = 1) {
+      ballX = canvas.width / 2;
+      ballY = canvas.height / 2;
+      ballSpeedX = winner === 1 ? -4.5 : 4.5;
+      ballSpeedY = (Math.random() - 0.5) * 4;
+    }
+
+    function resetGame() {
+      p1Score = 0;
+      p2Score = 0;
+      p1ScoreEl.innerText = '0';
+      p2ScoreEl.innerText = '0';
+      isGameOver = false;
+      resetBall();
+    }
+
+    modeBtn.onclick = () => {
+      is2P = !is2P;
+      modeBtn.innerText = is2P ? 'Mode: 2 Player' : 'Mode: 1P vs CPU';
+      hintText.innerText = is2P
+        ? 'P1: [W / S] · P2: [▲ / ▼] · First to 7 wins'
+        : 'P1: [W / S] or Mouse · CPU Difficulty: Medium';
+      resetGame();
+    };
+
+    function update() {
+      if (isGameOver) return;
+
+      // P1 movement
+      if (p1Up && p1Y > 0) p1Y -= 6;
+      if (p1Down && p1Y < canvas.height - paddleHeight) p1Y += 6;
+
+      // P2 movement
+      if (is2P) {
+        if (p2Up && p2Y > 0) p2Y -= 6;
+        if (p2Down && p2Y < canvas.height - paddleHeight) p2Y += 6;
+      } else {
+        // CPU AI tracking with slight delay
+        const target = ballY - paddleHeight / 2;
+        p2Y += (target - p2Y) * 0.085;
+        p2Y = Math.max(0, Math.min(canvas.height - paddleHeight, p2Y));
+      }
+
+      ballX += ballSpeedX;
+      ballY += ballSpeedY;
+
+      // Bounce top and bottom
+      if (ballY - ballRadius < 0 || ballY + ballRadius > canvas.height) {
+        ballSpeedY = -ballSpeedY;
+        playBeep(320, 0.04);
+      }
+
+      // Left paddle collision
+      if (
+        ballX - ballRadius < 25 &&
+        ballX - ballRadius > 15 &&
+        ballY > p1Y &&
+        ballY < p1Y + paddleHeight
+      ) {
+        const impact = (ballY - (p1Y + paddleHeight / 2)) / (paddleHeight / 2);
+        ballSpeedX = Math.abs(ballSpeedX) * 1.05;
+        ballSpeedY = impact * 5;
+        playBeep(440, 0.05);
+      }
+
+      // Right paddle collision
+      if (
+        ballX + ballRadius > canvas.width - 25 &&
+        ballX + ballRadius < canvas.width - 15 &&
+        ballY > p2Y &&
+        ballY < p2Y + paddleHeight
+      ) {
+        const impact = (ballY - (p2Y + paddleHeight / 2)) / (paddleHeight / 2);
+        ballSpeedX = -Math.abs(ballSpeedX) * 1.05;
+        ballSpeedY = impact * 5;
+        playBeep(440, 0.05);
+      }
+
+      // Score check
+      if (ballX < 0) {
+        p2Score++;
+        p2ScoreEl.innerText = p2Score;
+        playBeep(200, 0.15, 'sawtooth');
+        if (p2Score >= maxScore) isGameOver = true;
+        else resetBall(2);
+      } else if (ballX > canvas.width) {
+        p1Score++;
+        p1ScoreEl.innerText = p1Score;
+        playBeep(600, 0.15, 'sine');
+        if (p1Score >= maxScore) isGameOver = true;
+        else resetBall(1);
+      }
+    }
+
+    function draw() {
+      ctx.fillStyle = '#020617';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Center dotted line
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([8, 8]);
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2, 0);
+      ctx.lineTo(canvas.width / 2, canvas.height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // P1 Paddle
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(15, p1Y, paddleWidth, paddleHeight);
+
+      // P2 Paddle
+      ctx.fillStyle = '#f43f5e';
+      ctx.fillRect(canvas.width - 25, p2Y, paddleWidth, paddleHeight);
+
+      // Ball
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Game over overlay
+      if (isGameOver) {
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.85)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = p1Score >= maxScore ? '#38bdf8' : '#f43f5e';
+        ctx.font = 'bold 26px Courier New';
+        ctx.textAlign = 'center';
+        const winName = p1Score >= maxScore ? 'PLAYER 1 WINS!' : (is2P ? 'PLAYER 2 WINS!' : 'CPU WINS!');
+        ctx.fillText(winName, canvas.width / 2, canvas.height / 2 - 20);
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '15px Courier New';
+        ctx.fillText('Final Score: ' + p1Score + ' - ' + p2Score, canvas.width / 2, canvas.height / 2 + 15);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '13px Courier New';
+        ctx.fillText('Click anywhere to play again', canvas.width / 2, canvas.height / 2 + 50);
+      }
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('keydown', e => {
+      if (['ArrowUp', 'ArrowDown', 'w', 's'].includes(e.key)) e.preventDefault();
+      if (e.key === 'w' || e.key === 'W') p1Up = true;
+      if (e.key === 's' || e.key === 'S') p1Down = true;
+      if (e.key === 'ArrowUp') p2Up = true;
+      if (e.key === 'ArrowDown') p2Down = true;
+    });
+
+    window.addEventListener('keyup', e => {
+      if (e.key === 'w' || e.key === 'W') p1Up = false;
+      if (e.key === 's' || e.key === 'S') p1Down = false;
+      if (e.key === 'ArrowUp') p2Up = false;
+      if (e.key === 'ArrowDown') p2Down = false;
+    });
+
+    canvas.addEventListener('mousemove', e => {
+      if (isGameOver) return;
+      const rect = canvas.getBoundingClientRect();
+      const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+      p1Y = Math.max(0, Math.min(canvas.height - paddleHeight, mouseY - paddleHeight / 2));
+    });
+
+    canvas.addEventListener('click', () => {
+      if (isGameOver) resetGame();
+    });
+
+    resetGame();
+    loop();
+  </script>
+</body>
+</html>

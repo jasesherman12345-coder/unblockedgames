@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig(() => {
   return {
+    base: './',
     plugins: [
       {
         name: 'root-main-redirect',
